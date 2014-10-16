@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<!--
+	Licensed to the Apache Software Foundation (ASF) under one
+	or more contributor license agreements.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+-->
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="css/themes/default/jquery.mobile-1.4.0-beta.1.min.css" />
+    <link rel="stylesheet" href="css/index.css" />
+    <title>Beacon Hunt</title>
+    <script>
+        // Redirect console to Evothings Workbench.
+        if (window.hyper) {
+            console.log = hyper.log;
+        }
+
+        // Redirect errors to the console.
+        window.onerror = function(msg, url, line) {
+            console.log(msg + ": " + url + ":" + line);
+        };
+    </script>
+    <script src="js/jquery.js"></script>
+    <script src="js/jquery.mobile-1.4.0-beta.1.js"></script>
+    <script src="cordova.js"></script>
+</head>
+
+<body>
+    <div data-role="page" id="main" data-theme="a">
+		<p></p>
+        <img class="headerImg" src="images/BRC_Logo2.png">
+        <div data-role="content">
+            <!-- TODO: buttons to start/continue/reset hunt. -->
+                <h1 align="center">Beacon Hunt</h1>
+    
+            <div style="margin-top:30px;padding:0px 10px;border:1px solid;">
+                <p><b>How to Play:</b>
+                </p>
+                <p><b> DON'T START YET.  Read on...</b></p>
+                <p>The timer countdown will commence when you start the game.
+				There is no way to stop the timer because you'll already have a peek at the clues.  No cheating allowed.</p>
+                <p>After starting, you will have a list of beacon sites to find.
+				Click on one to reveal a clue.  Reveal additional clues up to three, but your score will take a hit.</p>
+				<p>You can go back and forth between beacons and clues and find them in any order.  However, you must be on the
+				respective hint page to register the beacon.</p>
+				<p>Start the hunt when all teams are assembled and ready.</p>
+            </div>
+        </div>
+        <!-- /content -->
+            <div id="strt" align="center">
+                <input type="button" value="START" onClick="app.startTimer();location.href='#first';" >
+        </div>
+    </div>
+    <!-- /page #main -->
+
+    <div data-role="page" id="first" data-theme="a">
+        <div data-role="header">
+            <h1>Beacon Hunt</h1>
+			<div data-role="navbar">
+				<ul>
+					<li ><a href="#" id="found">Found 0 of 0</a></li>
+					<li ><a href="#" id="timer">0:00</a></li>
+					<li ><a href="#" id="score">Score: 0</a></li>
+				</ul>
+			</div><!-- /navbar -->
+        </div>
+
+        <div data-role="content">
+            <h2 id="huntName">Test Hunt</h2>
+            <!-- TODO: buttons to start/stop scan. -->
+            <ul data-role="listview" data-inset="true" id="huntList">
+				
+			</ul>
+            <div style="margin-top:30px;padding:0px 10px;border:1px solid;" id="gameStatus">
+                <p></p>
+                <p><b>How to Play:</b>
+                </p>
+                <p>Select an item from the list to reveal the clues.  Use the clues to find the beacon.
+				When you get close enough, the beacon will be marked off the list.</p>
+            </div>
+        </div> <!-- /content -->
+    </div>
+    <!-- /page #first -->
+
+    <div data-role="page" id="connected" data-theme="a">
+        <div data-role="header" data-add-back-btn="true">
+            <h2 id="hintNameHeader"> </h2>
+            <h3>Est. Distance: <span id="deviceState">n/a</span></h3>
+        </div>  <!--/header -->
+        <div data-role="content" id="clues">
+            <p id="hint1">Clue 1: ?</p>
+            <p id="hint2">Clue 2: ?</p>
+            <p id="hint3">Clue 3: ?</p>
+			<a><img class="hintImg" id="hintImgs" src="./images/BRC_Logo.png"</a>
+            <div style="margin-top:30px;padding:0px 10px;border:1px solid;">
+                <p></p>
+                <p>Use the clues to get in range of the beacon.  An estimated distance will begin to appear when you are close.</p>
+            </div>
+        </div>
+        <div data-role="footer" data-position="fixed">
+            <div id="showNext" align="center">
+                <input type="button" value="Show Next Clue" onclick="app.showNextClue();">
+            </div>
+        </div>  
+    </div>  <!-- /page #connected -->
+
+</body>
+<script src="js/timer.js"></script>  <!-- Timer -->
+<script src="js/index.js"></script>
+<script>
+    app.initialize();
+</script>
+
+</html>

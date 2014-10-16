@@ -1,0 +1,20 @@
+
+#servicesListTemplate {display:none;}
+
+.headerImg
+{
+  display: block;
+	width: auto;
+	height: 15%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.hintImg
+{
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 160px;
+    height: 160px;
+}
