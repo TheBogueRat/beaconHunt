@@ -1,6 +1,11 @@
 //
 // JavaScript code for the BLE Beacon Hunt.
 //
+// TODO: Fix 'found' image display in <li>
+//       Save status on exit (counter, found items, number of hints/item)
+//       Use resume button when restarting app with game in progress.
+//		
+
 var timer;
 
 $(document).ready(function() {
@@ -18,11 +23,13 @@ var ble = null;
 var app = {};
 
 // Game Variables (probably should change format to app.xxxxxxxxx)
-var dataStore; // Holds treasure hunt data for quick display
-var clueStatus = []; // Which clues have been given.
-var beaconsDiscovered = 0; // Number of beacons that have been located by device
-var beaconsPossible; // Number of beacons available to be found.
-var currentBeaconHint; // Which beacon# is being displayed, for use in array
+var dataStore; 				// Holds treasure hunt data for quick display
+var huntInfo;				// Holds hunt info/version
+var clueStatus = []; 		// Which clues have been given.
+var beaconsDiscovered = 0; 	// Number of beacons that have been located by device
+var beaconsPossible; 		// Number of beacons available to be found.
+var currentBeaconHint; 		// Which beacon# is being displayed, for use in array
+var currentHint = 1;   		// Tracks number of hints shown
 
 // BLE device scanning will be made with this interval in milliseconds.
 app.scanInterval = 5000;
@@ -35,52 +42,141 @@ app.isScanning = false;
 app.lastScanEvent = 0;
 
 app.getData = function() {
-        // Grab Treasure Hunt Information from Server if not Available
-        // TODO: Add validation - Date check
-        $.getJSON('http://boguerat.com/treasureHunt/treasureHunt.php?jsonp=?', function(data) {
-            if (data.length !== 0) {
-                console.log("treasureHunt Data Retrieved...storing...");
-                localStorage.setItem('treasure.hunt.data', JSON.stringify(data));
-                localStorage.setItem('treasure.hunt.hasRecords', JSON.stringify(true));
-                //dataStore = data;
-            } else {
-                console.log("No treasureHunt data was retrieved.");
-            }
-        });
-        $.getJSON('http://boguerat.com/treasureHunt/treasureHuntInfo.php?jsonp=?', function(data) {
-            if (data.length !== 0) {
-                console.log("treasureHuntInfo Data Retrieved...storing...");
-                localStorage.setItem('treasure.hunt.info', JSON.stringify(data));
-            } else {
-                console.log("No treasureHuntInfo data was retrieved.");
-            }
-        });
-        console.log("JSONp complete.");
-    } // End getData
+	// Grab Treasure Hunt Information from Server
+	// TODO: use promises to eliminate duplication in treasureHuntInfo retrieval code.
+	$.getJSON('http://boguerat.com/treasureHunt/treasureHunt.php?jsonp=?', function(data) {
+		if (data.length !== 0) {
+			console.log("treasureHunt Data Retrieved...storing...");
+			localStorage.setItem('treasure.hunt.data', JSON.stringify(data));
+			localStorage.setItem('treasure.hunt.hasRecords', JSON.stringify(true));
+			dataStore = data;
+			// Get hunt info
+			$.getJSON('http://boguerat.com/treasureHunt/treasureHuntInfo.php?jsonp=?', function(data) {
+				if (data.length !== 0) {
+					console.log("treasureHuntInfo Data Retrieved...");
+					localStorage.setItem('treasure.hunt.info', JSON.stringify(data));
+					app.populateTheGame();
+				} else {
+					console.log("getInfo Err, No treasureHuntInfo data was retrieved. No Connection?");
+					// Alert or message to user indicating connection required?
+				}
+			});
+			// Retrieve values to populate the app (need to pull from localStorage since straight from JSONP was failing)
+			//dataStore = JSON.parse(window.localStorage.getItem('treasure.hunt.data'));
+		} else {
+			console.log("No treasureHunt data was retrieved.");
+		}
+	});
+	console.log("JSONp complete.");
+} // End getData
 
 app.verifyLocalData = function() {
-        // Check to see if local data already exists, Retrieve it as necessary.
-        // TODO: Add validation - Date check
-        var dataCheck = window.localStorage.getItem('treasure.hunt.hasRecords');
-        if (dataCheck != 'true') { // Retrieve Remote Data
-            console.log("gettingData...");
-            app.getData();
-        }
-        // Retrieve values to populate the app (need to pull from localStorage since straight from JSONP was failing)
-        dataStore = JSON.parse(window.localStorage.getItem('treasure.hunt.data'));
-    } // End verifyLocalData
+	// Check to see if local data already exists, Retrieve it as necessary.
+	if (window.localStorage.getItem("treasure.hunt.hasRecords")) {
+		console.log("treasure.hunt.hasRecords exists");
+		var hasData = JSON.parse(window.localStorage.getItem('treasure.hunt.hasRecords'));
+	} else {
+		hasData = false;
+	}
 
-var currentHint = 1;
+	if (hasData != true) { // Retrieve Remote Data
+		console.log("hasData: not true; getting data...");
+		// TODO: need to get treasure hunt info, too.
+		
+		app.getData();
+		return;
+	}
+	
+	huntInfo = JSON.parse(window.localStorage.getItem('treasure.hunt.info'));
+	
+	// Data Exists, but is it the latest info.
+	var dateCheck;
+	// Retrieve beacon hunt data version date from server
+	$.getJSON('http://boguerat.com/treasureHunt/treasureHuntInfo.php?jsonp=?', function(data) {
+		if (data.length !== 0) {
+			console.log("treasureHuntInfo Data Retrieved for date check...");
+			dateCheck = data;
+
+			console.log("Evaluating for newer data...");
+			if (dateCheck[0].huntVersion > huntInfo[0].huntVersion) {
+				console.log("Newer Data Available");
+				// Store newer hunt Info
+				localStorage.setItem('treasure.hunt.info', JSON.stringify(dateCheck));
+				// get updated data
+				app.getData();
+			} else {
+				// Data is current so process info
+				dataStore = JSON.parse(window.localStorage.getItem('treasure.hunt.data'));
+				app.populateTheGame();
+			}
+		} else {
+			console.log("Err, No treasureHuntInfo data was retrieved. No Connection?");
+			// Alert or message to user indicating connection required?
+		}
+	});
+
+} // End verifyLocalData
+
+app.populateTheGame = function() {
+	// This function is called after validating the game version with the server
+	//    or after retrieving new data from the server.
+	//
+	// Populate Name of the hunt.
+    huntInfo = JSON.parse(window.localStorage.getItem('treasure.hunt.info'));
+    $("#huntName").text(huntInfo[0].huntName + " List:");
+    // Populate huntList items
+    $.each(dataStore, function(i, item) {
+        // grab specific key/value from each record
+        var res = dataStore[i].hintName;
+        var p = document.getElementById('huntList');
+        var li = document.createElement('li');
+        //var $a = $("<a href=\"#connected\"><img src=.\\images\\"+dataStore[i].picture+".jpg>" + res + "</a>");
+        var $a = $("<a href=\"#connected\"><img src=\"./images/"+dataStore[i].picture+".jpg\">" + res + "</a>");
+        $(li).append($a);
+        $a.bind("click", {
+            address: dataStore[i].badgeID,
+            name: dataStore[i].hintName
+        }, app.eventDeviceClicked);
+        p.appendChild(li);
+        // Store the number of beacons needed to finish the game
+        beaconsPossible = i + 1;
+		// Set all items to reveal first clue
+		clueStatus[i] = 1;
+    });
+	$("#found").text("Found "+beaconsDiscovered+" of "+beaconsPossible);
+	console.log("Number of possible beacons: " + beaconsPossible);
+}
+
 app.resetClues = function(hintsNum) {
-    // reset counter
-    currentHint = 1;
-    // change display to default
-    $("#hint1").text("Clue 1:  " + dataStore[hintsNum].clue1);
-    $("#hint2").text("Clue 2:");
-    $("#hint3").text("Clue 3:");
-    $("#showNext").show();
-	$("#hintImgs").attr("src", ".\\images\\"+dataStore[hintsNum].picture);  //Change image src to current hint.
-	console.log("hintImage changed to: "+ "/images/"+dataStore[hintsNum].picture);
+    // reset counter	
+	console.log("hintsNum = "+hintsNum+"..switch clueStatus[hintsNum]=" + clueStatus[hintsNum]);
+	
+    switch(clueStatus[hintsNum]) {
+		case 1:
+		// change display to default
+			$("#hint1").text("Clue 1:  " + dataStore[hintsNum].clue1);
+			$("#hint2").text("Clue 2:");
+			$("#hint3").text("Clue 3:");
+			$("#showNext").show();
+			currentHint=1;
+			break;
+		case 2:
+			$("#hint1").text("Clue 1:  " + dataStore[hintsNum].clue1);
+			$("#hint2").text("Clue 2: " + dataStore[hintsNum].clue2);
+			$("#hint3").text("Clue 3:");
+			$("#showNext").show();
+			currentHint=2;
+			break;
+		case 3:
+			$("#hint1").text("Clue 1:  " + dataStore[hintsNum].clue1);
+			$("#hint2").text("Clue 2: " + dataStore[hintsNum].clue2);
+			$("#hint3").text("Clue 3: " + dataStore[hintsNum].clue3);
+			$("#showNext").hide();
+			currentHint=3;
+			break;
+	}
+	$("#hintImgs").attr("src", ".\\images\\"+dataStore[hintsNum].picture+".jpg");  //Change image src to current hint.
+	console.log("hintImage changed to: "+ "./images/"+dataStore[hintsNum].picture+".jpg");
 }
 
 app.showNextClue = function() {
@@ -89,18 +185,19 @@ app.showNextClue = function() {
         //Display 2nd Hint
         $("#hint2").text("Clue 2:  " + dataStore[currentBeaconHint].clue2);
         currentHint++;
-    } else if (currentHint == 2) {
+		clueStatus[currentBeaconHint] = 2
+		console.log("currentBeaconHint:"+currentBeaconHint);
+    } else {
         // Display 3rd Hint
         $("#hint3").text("Clue 3:  " + dataStore[currentBeaconHint].clue3);
         // Hide button
         $("#showNext").hide();
-        // display "All Clues are Displayed"
-
-    } else {
-        // Should have already hidden this
+        clueStatus[currentBeaconHint] = 3
     }
-    console.log("currentHint: " + currentHint);
+	// Testing.....Don't need to actually find a beacon
+	//app.foundBeacon(currentBeaconHint);
 }
+
 
 // Bind Event Listeners
 //
@@ -151,7 +248,7 @@ app.startLeScan = function() {
             //within range, mark as found, return to main.
             console.log(r.rssi)
             if (r.rssi > -70) {
-                app.foundBeacon(currentBeaconHint); // Change UI
+                app.foundBeacon(currentBeaconHint); // Change UI, tally score.
                 // Add to list of known(found) devices
                 app.knownDevices[r.address] = r;
                 //Mark as found
@@ -173,14 +270,21 @@ app.startLeScan = function() {
 var score = 0;
 
 app.foundBeacon = function(foundDevice) { //foundDevice is #
+		// Replace clue picture with full image
+		$("#huntList").find("li a img").eq(currentBeaconHint).attr("src", "./images/" + dataStore[foundDevice].picture + "_revealed.jpg");
         var hint = dataStore[foundDevice].badgeName;
-        $("#nextHint").hide();
         $("#deviceState").text("n/a");
-        var foundLink = $("#huntList").find("li a").eq(foundDevice);
-        foundLink.text("FOUND: The " + hint);
-        foundLink.removeClass("ui-icon-carat-r").addClass("ui-icon-check");
-        foundLink.prop("href", "");
-        foundLink.css("background-color", "lime");
+		// Get list item corresponding to the beacon that was located.
+		var foundLink = $("#huntList").find("li a").eq(foundDevice);
+		// Change icon to checkmark
+		foundLink.removeClass("ui-icon-carat-r").addClass("ui-icon-check");
+		// Change background color of clue
+		foundLink.css("background-color", "lime");
+        // Remove link
+		foundLink.prop("href", "");
+		// TODO:  Every time I try to change the text, the picture disappears. Tried .replace, same result.
+		//foundLink.text("Found: The "+dataStore[foundDevice].badgeName);
+		
 		beaconsDiscovered++;
 		switch(currentHint) {
 			case 1:
@@ -196,7 +300,7 @@ app.foundBeacon = function(foundDevice) { //foundDevice is #
 		$("#score").text("Score: "+score);
 		if (beaconsDiscovered==beaconsPossible) {
 			timer.stop;
-			$("#gameStatus").text=("<b>Congratulations for finding all the beacons.</b>  Now return to the start and present your score to the game coordinator.");
+			$("#gameStatus").text("Congratulations for finding all the beacons.  Now return to the start and present your score to the game coordinator.");
 		}
 		app.updateNumFound();
         alert("You Found the " + hint);
@@ -209,14 +313,9 @@ app.eventDeviceClicked = function(event) {
     currentBeaconHint = parseInt(event.data.address) - 1;
     // TODO:  Fill out hints
     app.resetClues(currentBeaconHint);
-    app.connect(event.data.address, event.data.name);
+	console.log("currentBeaconHint passed to resetClues: "+currentBeaconHint);
+    //app.connect(event.data.address, event.data.name);
     document.getElementById('hintNameHeader').innerHTML = event.data.name;
-};
-
-app.connect = function(address, name) {
-    //app.stopLeScan();
-    // TODO:  if correct beacon found, use the next line...
-    document.getElementById('hintNameHeader').innerHTML = name;
 };
 
 // Stop scanning for devices.
@@ -251,39 +350,17 @@ app.initialize = function() {
     this.bindEvents();
     // Get Data
     app.verifyLocalData();
+	//app.updateNumFound();
 
-    // Populate Name of the hunt.
-    var huntInfo = JSON.parse(window.localStorage.getItem('treasure.hunt.info'));
-    $("#huntName").text(huntInfo[0].huntName + " List:");
-    // Populate huntList items
-    $.each(dataStore, function(i, item) {
-        // grab specific key/value from each record
-        var res = dataStore[i].hintName;
-        var p = document.getElementById('huntList');
-        var li = document.createElement('li');
-		//var $im = $("<img src=.\\images\\"+dataStore[i].picture+">"); //Add Thumbnail Pic
-		//$(li).append($im);
-        var $a = $("<a href=\"#connected\"><img src=.\\images\\"+dataStore[i].picture+">" + res + "</a>");
-        $(li).append($a);
-        $a.bind("click", {
-                address: dataStore[i].badgeID,
-                name: dataStore[i].hintName
-            },
-            app.eventDeviceClicked);
-        p.appendChild(li);
-        // Store the number of beacons needed to finish the game
-        beaconsPossible = i + 1;
-    });
-	app.updateNumFound();
-    console.log("Number of possible beacons: " + beaconsPossible);
-	// Start the clock...
 };
 
 app.startTimer = function() {
+
+	// Start the clock...
 	if (timer) {
-	if (timer.getStatus==1) { //don't start another timer
-		return;
-	}
+		if (timer.getStatus==1) { //don't start another timer
+			return;
+		}
 	}
 	timer = new _timer(
 		function(time) {

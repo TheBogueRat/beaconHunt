@@ -2,7 +2,7 @@ beaconHunt -
 
 an application to locate advertising beacons as part of a scavanger hunt.  Currently,
 all beacons are hard coded.  A second app will be used to create/modify personalized
-scavanger hunts which will be made available at the startup screen via login/lists.
+scavanger hunts which will be made available at the startup screen via login/program code.
 For now, customizations can be made via the mySql database.
 
 Image naming convention -
