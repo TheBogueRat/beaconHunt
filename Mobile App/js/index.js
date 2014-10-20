@@ -1,10 +1,16 @@
 //
-// JavaScript code for the BLE Beacon Hunt.
+// JavaScript code for the Beacon Hunt.
+//
+// Source: Evothings BLE Discovery example for BLE detection (all 'connect' code removed)
 //
 // TODO: Fix 'found' image display in <li>
 //       Save status on exit (counter, found items, number of hints/item)
 //       Use resume button when restarting app with game in progress.
-//		
+// 		 Multi-timer mode
+//		 	Have timer count down time retrieved from db, stop game at 0.
+//		 Graceful exit, store settings to prevent cheating the clock.
+//		 Add timeout/loading img/ or some method to identify no connection.
+//       Stop adding things to this list:-)
 
 var timer;
 
@@ -46,43 +52,32 @@ app.getData = function() {
 	// TODO: use promises to eliminate duplication in treasureHuntInfo retrieval code.
 	$.getJSON('http://boguerat.com/treasureHunt/treasureHunt.php?jsonp=?', function(data) {
 		if (data.length !== 0) {
-			console.log("treasureHunt Data Retrieved...storing...");
 			localStorage.setItem('treasure.hunt.data', JSON.stringify(data));
 			localStorage.setItem('treasure.hunt.hasRecords', JSON.stringify(true));
 			dataStore = data;
 			// Get hunt info
 			$.getJSON('http://boguerat.com/treasureHunt/treasureHuntInfo.php?jsonp=?', function(data) {
 				if (data.length !== 0) {
-					console.log("treasureHuntInfo Data Retrieved...");
 					localStorage.setItem('treasure.hunt.info', JSON.stringify(data));
 					app.populateTheGame();
 				} else {
 					console.log("getInfo Err, No treasureHuntInfo data was retrieved. No Connection?");
-					// Alert or message to user indicating connection required?
 				}
 			});
-			// Retrieve values to populate the app (need to pull from localStorage since straight from JSONP was failing)
-			//dataStore = JSON.parse(window.localStorage.getItem('treasure.hunt.data'));
 		} else {
 			console.log("No treasureHunt data was retrieved.");
 		}
 	});
-	console.log("JSONp complete.");
 } // End getData
 
 app.verifyLocalData = function() {
 	// Check to see if local data already exists, Retrieve it as necessary.
 	if (window.localStorage.getItem("treasure.hunt.hasRecords")) {
-		console.log("treasure.hunt.hasRecords exists");
 		var hasData = JSON.parse(window.localStorage.getItem('treasure.hunt.hasRecords'));
 	} else {
 		hasData = false;
 	}
-
 	if (hasData != true) { // Retrieve Remote Data
-		console.log("hasData: not true; getting data...");
-		// TODO: need to get treasure hunt info, too.
-		
 		app.getData();
 		return;
 	}
@@ -94,12 +89,8 @@ app.verifyLocalData = function() {
 	// Retrieve beacon hunt data version date from server
 	$.getJSON('http://boguerat.com/treasureHunt/treasureHuntInfo.php?jsonp=?', function(data) {
 		if (data.length !== 0) {
-			console.log("treasureHuntInfo Data Retrieved for date check...");
 			dateCheck = data;
-
-			console.log("Evaluating for newer data...");
 			if (dateCheck[0].huntVersion > huntInfo[0].huntVersion) {
-				console.log("Newer Data Available");
 				// Store newer hunt Info
 				localStorage.setItem('treasure.hunt.info', JSON.stringify(dateCheck));
 				// get updated data
@@ -124,13 +115,13 @@ app.populateTheGame = function() {
 	// Populate Name of the hunt.
     huntInfo = JSON.parse(window.localStorage.getItem('treasure.hunt.info'));
     $("#huntName").text(huntInfo[0].huntName + " List:");
+	
     // Populate huntList items
     $.each(dataStore, function(i, item) {
         // grab specific key/value from each record
         var res = dataStore[i].hintName;
         var p = document.getElementById('huntList');
         var li = document.createElement('li');
-        //var $a = $("<a href=\"#connected\"><img src=.\\images\\"+dataStore[i].picture+".jpg>" + res + "</a>");
         var $a = $("<a href=\"#connected\"><img src=\"./images/"+dataStore[i].picture+".jpg\">" + res + "</a>");
         $(li).append($a);
         $a.bind("click", {
@@ -144,13 +135,10 @@ app.populateTheGame = function() {
 		clueStatus[i] = 1;
     });
 	$("#found").text("Found "+beaconsDiscovered+" of "+beaconsPossible);
-	console.log("Number of possible beacons: " + beaconsPossible);
 }
 
 app.resetClues = function(hintsNum) {
-    // reset counter	
-	console.log("hintsNum = "+hintsNum+"..switch clueStatus[hintsNum]=" + clueStatus[hintsNum]);
-	
+    // Show appropriate clues for current hint.
     switch(clueStatus[hintsNum]) {
 		case 1:
 		// change display to default
@@ -176,7 +164,6 @@ app.resetClues = function(hintsNum) {
 			break;
 	}
 	$("#hintImgs").attr("src", ".\\images\\"+dataStore[hintsNum].picture+".jpg");  //Change image src to current hint.
-	console.log("hintImage changed to: "+ "./images/"+dataStore[hintsNum].picture+".jpg");
 }
 
 app.showNextClue = function() {
@@ -186,7 +173,6 @@ app.showNextClue = function() {
         $("#hint2").text("Clue 2:  " + dataStore[currentBeaconHint].clue2);
         currentHint++;
 		clueStatus[currentBeaconHint] = 2
-		console.log("currentBeaconHint:"+currentBeaconHint);
     } else {
         // Display 3rd Hint
         $("#hint3").text("Clue 3:  " + dataStore[currentBeaconHint].clue3);
@@ -194,10 +180,7 @@ app.showNextClue = function() {
         $("#showNext").hide();
         clueStatus[currentBeaconHint] = 3
     }
-	// Testing.....Don't need to actually find a beacon
-	//app.foundBeacon(currentBeaconHint);
 }
-
 
 // Bind Event Listeners
 //
@@ -208,61 +191,33 @@ app.bindEvents = function() {
 };
 
 // deviceready Event Handler
-//
-// The scope of 'this' is the event. In order to call the 'receivedEvent'
-// function, we must explicity call 'app.receivedEvent(...);'
 app.onDeviceReady = function() {
     // The plugin was loaded asynchronously and can here be referenced.
     ble = evothings.ble;
-    app.receivedEvent('deviceready');
     app.startLeScan();
 };
-
-// TODO: Update DOM on a Received Event.
-// Currently logging event.
-app.receivedEvent = function(id) {
-    console.log('Received Event: ' + id);
-};
-
-// Collection of known devices not used for treasure hunt
-app.knownDevices = {};
 
 var discovered = [];
 
 app.startLeScan = function() {
-    console.log('startScan');
 
     app.stopLeScan();
     app.isScanning = true;
     app.lastScanEvent = new Date();
     //app.runScanTimer();
     $("#deviceState").text("");
-    ble.startScan(function(r) {
-        //address, rssi, name, scanRecord
+    ble.startScan(function(r) {  //r has: address, rssi, name, scanRecord
         // compare detected beacon against current clue page.
         if (r.name == dataStore[currentBeaconHint].badgeName && !discovered[currentBeaconHint]) {
-            console.log(r.name + ":" + dataStore[currentBeaconHint].badgeName)
                 // Display signal strength continuously
-                // replace with status bar?
+                // replace with status bar? This is not accurate as distance.
             $("#deviceState").text(-(r.rssi + 40) / 2);
-            //within range, mark as found, return to main.
-            console.log(r.rssi)
-            if (r.rssi > -70) {
+            //within range, mark as found, return to main. (try different values)
+            if (r.rssi > - 60) {
                 app.foundBeacon(currentBeaconHint); // Change UI, tally score.
-                // Add to list of known(found) devices
-                app.knownDevices[r.address] = r;
                 //Mark as found
                 discovered[currentBeaconHint] = true;
-                // Add points
-                //
-                console.log("App.KnownDevice found: " + app.knownDevices[r.address].name)
-            } else {
-                return;
-            }
-        }
-        // Don't think this is needed, check if detected previously
-        if (app.knownDevices[r.address]) {
-            return;
+            } 
         }
     });
 }; // End startLeScan
@@ -311,11 +266,10 @@ app.foundBeacon = function(foundDevice) { //foundDevice is #
 app.eventDeviceClicked = function(event) {
     // Actually, passes the address:name from the list item clicked
     currentBeaconHint = parseInt(event.data.address) - 1;
-    // TODO:  Fill out hints
+    // Show clues for current Hint
     app.resetClues(currentBeaconHint);
-	console.log("currentBeaconHint passed to resetClues: "+currentBeaconHint);
-    //app.connect(event.data.address, event.data.name);
-    document.getElementById('hintNameHeader').innerHTML = event.data.name;
+    $("hintNameHeader")
+	document.getElementById('hintNameHeader').innerHTML = event.data.name;
 };
 
 // Stop scanning for devices.
@@ -341,8 +295,8 @@ app.runScanTimer = function() {
 };
 
 app.updateNumFound = function() {
-	//var foundLink = $("#huntList").find("li a").eq(foundDevice);
-	$("#found").text("Found "+beaconsDiscovered+" of "+beaconsPossible);
+	// Update UI when number change
+	$("#found").text("Found " + beaconsDiscovered + " of " + beaconsPossible);
 }
 
 // Application Constructor
@@ -350,14 +304,11 @@ app.initialize = function() {
     this.bindEvents();
     // Get Data
     app.verifyLocalData();
-	//app.updateNumFound();
-
 };
 
 app.startTimer = function() {
-
 	// Start the clock...
-	if (timer) {
+	if (timer) {  // TODO: intended to prevent multiple starts, not working
 		if (timer.getStatus==1) { //don't start another timer
 			return;
 		}
@@ -371,6 +322,6 @@ app.startTimer = function() {
 		}
 	);
 	timer.reset(0); //Set time to 0
-	timer.mode(1);  //Count up
+	timer.mode(1);  //Count up = 1; count down = 0
 	timer.start();
 }
