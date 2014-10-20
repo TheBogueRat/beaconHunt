@@ -44,9 +44,9 @@ CREATE TABLE IF NOT EXISTS `treasure_hunt` (
 --
 
 INSERT INTO `treasure_hunt` (`badgeID`, `badgeName`, `hintName`, `clue1`, `clue2`, `clue3`, `picture`) VALUES
-(1, 'Surf Shack Sign', 'Sign of the Times', 'A sign of good surf?', 'Home is where the hunt is.', 'Put your surfboards by the shack.', 'sign.jpg'),
-(2, 'Pool Slide', 'Beat the Heat', 'A refreshing waterfall.', 'Source of Summer Fun.', 'Slippin into the pool.', 'slide.jpg'),
-(3, 'Kitchen', 'Center of the Party', 'Make some heat if you wanna eat.', 'Create culinary delights.', 'With a wisk, spatula, and Blade; this is where your meal is made.', 'kitchen.jpg');
+(1, 'Surf Shack Sign', 'Sign of the Times', 'A sign of good surf?', 'Home is where the hunt is.', 'Put your surfboards by the shack.', 'sign'),
+(2, 'Pool Slide', 'Beat the Heat', 'A refreshing waterfall.', 'Source of Summer Fun.', 'Slippin into the pool.', 'slide'),
+(3, 'Kitchen', 'Center of the Party', 'Make some heat if you wanna eat.', 'Create culinary delights.', 'With a wisk, spatula, and Blade; this is where your meal is made.', 'kitchen');
 
 -- --------------------------------------------------------
 
