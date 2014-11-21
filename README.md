@@ -13,8 +13,8 @@ The idea is that the game parameters are established on the SQL Server.  The pla
 
 Folders:
 --------
-*	Mobile App - WWW folder files for use in Cordova(EVOThings BLE plugin required) or Evothings Studio.
-*	Arduino Beacon - Arduino Code for beacons.
+*	www - www folder files for use in Cordova(EVOThings BLE plugin required) or Evothings Studio.
+*	ArduinoBeacon - Arduino Code for beacons.
 *	PHP_MySQL - PHP Code to return game data from MySQL database and SQL to import data structure.
 
 TODO’s:
